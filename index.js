@@ -6,6 +6,8 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 index.use(bodyParser.json());
 const mysql = require('mysql2');
+const ejscms = require('ejscms');
+const path = require("path");
 
 const {Sequelize, DataTypes} = require('sequelize');
 
@@ -36,28 +38,37 @@ sequelize.sync().then(()=>console.log("sync!"));
 
 console.log(dbprops);
 
+ejscms.configure({
+  staticHome: path.resolve("./static-home")
+})
+
 // Use body-parser middleware to parse request bodies
 
+async function getAll(model) {
+  const allData = await model.findAll();
+  const parsedAllData = JSON.parse(JSON.stringify(allData));
+  return parsedAllData;
+}
 
 index.post('/text/create', async (req, res) => {
   const data = req.body;
-  console.log(data);
   const text = await Text.create(data);
-  res.status(200).redirect('/text');
+  const texts = await getAll(Text);
+  
+  ejscms.commit("./template/frontend.ejs", {examples: texts},'home');
+  res.send(200);
 });
 
 
 index.get('/text/read', async (req, res) => {
   const texts = await Text.findAll();
   const data = JSON.parse(JSON.stringify(texts));
-  console.log(data);
   res.status(200).json(texts);
 });
 
 index.get('/text', async (req, res) => {
   let template = await fs.readFile("./template/frontend.ejs", "utf-8");
-  const texts = await Text.findAll();
-  const examples = JSON.parse(JSON.stringify(texts));
+  const examples = await getAll(Text);
   let html = ejs.render(template, {examples});
   res.send(html).status(200);
 });
